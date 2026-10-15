@@ -1,43 +1,65 @@
-```markdown
 # Gemini Web Trivia Generator (`web_gemini_generator.py`)
 
-An automated pipeline utilizing Playwright via Chrome DevTools Protocol (CDP) to drive an active browser session on `gemini.google.com`. It autonomously creates trivia puzzle databases across multiple categories and topics into normalized JSON files.
+أداة مؤتمتة تعتمد على Playwright عبر بروتوكول Chrome DevTools (CDP) للتحكم في جلسة متصفح نشطة على `gemini.google.com`، لتوليد قواعد بيانات ألغاز وأسئلة ثقافية ومسابقات عبر تصنيفات ومواضيع متعددة وحفظها في ملفات JSON قياسية.
 
 ---
 
-## 1. Prerequisites & Dependencies
+## 📁 بنية ومحتويات المجلد (Files Overview)
 
-- **Python 3.10+**
-- **Google Chrome** installed locally.
-- Python dependencies:
+| الملف / المجلد | الوصف والهدف |
+|---|---|
+| `web_gemini_generator.py` | السكربت الرئيسي الذي يتصل بمتصفح Chrome ويقوم بإرسال الطلبات إلى Gemini ومعالجة الإجابات وحفظ الأسئلة. |
+| `categories.txt` | ملف الإدخال بصيغة JSON ويحتوي على شجرة التصنيفات والمواضيع المستهدفة لتوليد الأسئلة. |
+| `example of the result.json` | نموذج توضيحي لهيكل وشكل ملف JSON النهائي للأسئلة لكل موضوع. |
+| `requirements.txt` | ملف الاعتماديات والحزم المطلوبة للمشروع (`playwright`). |
+| `start_chrome.bat` | سكربت دفعي لتشغيل متصفح Google Chrome تلقائياً مع فتح منفذ التصحيح عن بُعد `9222` وتوجيهه إلى Gemini. |
+| `run_generator.bat` | سكربت دفعي لتشغيل السكربت الرئيسي مباشرة باستخدام بايثون في البيئة الافتراضية `.venv`. |
+| `.gitignore` | ملف استثناء البيئة الافتراضية وملفات الكاش وجلسات المتصفح المؤقتة من مستودع Git. |
+| `readme.md` | ملف التوثيق ودليل إعداد وتشغيل المشروع. |
+
+---
+
+## 1. المتطلبات والاعتماديات (Prerequisites & Setup)
+
+- **Python 3.10 - 3.12** (ملاحظة: Playwright يتطلب إصداراً مدعوماً مثل Python 3.12).
+- متصفح **Google Chrome** مثبت على الجهاز.
+- البيئة الافتراضية مثبت بها مكتبة `playwright`:
   ```bash
-  pip install playwright
-
-```
+  pip install -r requirements.txt
+  playwright install chromium
+  ```
 
 ---
 
-## 2. Setting Up Remote Debugging (Chrome)
+## 2. خطوات التشغيل (Quick Start)
 
-Before running the generator, you must launch an instance of Google Chrome with a remote debugging port enabled so Playwright can attach to your active Gemini session.
-
-### Windows (PowerShell / CMD)
-
+### الخطوة الأولى: تشغيل المتصفح بوضع التصحيح
+قم بتشغيل الملف:
+```cmd
+start_chrome.bat
+```
+أو عبر سطر الأوامر (PowerShell / CMD):
 ```powershell
-chrome.exe --remote-debugging-port=9222 --user-data-dir="C:\chrome-dev-profile"
-
+& "C:\Program Files\Google\Chrome\Application\chrome.exe" --remote-debugging-port=9222 --user-data-dir="C:\chrome-dev-profile" https://gemini.google.com
 ```
+1. قم بتسجيل الدخول إلى حساب Google الخاص بك في نافذة Chrome التي فتحت.
+2. اترك المتصفح مفتوحاً في الخلفية.
 
-1. Navigate to `https://gemini.google.com` in the newly opened window.
-2. Sign in to your Google Account.
-3. Keep this browser window open in the background.
+### الخطوة الثانية: بدء التوليد
+قم بتشغيل الملف:
+```cmd
+run_generator.bat
+```
+أو عبر سطر الأوامر باستخدام بايثون في البيئة الافتراضية:
+```bash
+.\.venv\Scripts\python.exe web_gemini_generator.py
+```
 
 ---
 
-## 3. Configuration & Input File
+## 3. التكوين وملف الإدخال (Configuration)
 
-The script expects a configuration input file named `categories.txt` in the root folder containing valid JSON structured by category and topic arrays:
-
+يقوم السكربت بقراءة التصنيفات من `categories.txt` المهيكلة كـ JSON:
 ```json
 {
   "علوم": [
@@ -49,34 +71,21 @@ The script expects a configuration input file named `categories.txt` in the root
     "الدوري الإسباني"
   ]
 }
-
 ```
 
-### Key Parameters in Script
-
-* `CATEGORIES_FILE`: Path to the categories input (`categories.txt`).
-* `OUTPUT_DIR`: Directory where output files are created (`./game_data/`).
-* `QUESTIONS_PER_TOPIC`: Target questions per topic (default: `200`).
-* `BATCH_SIZE`: Number of questions requested per prompt (default: `25`).
-* `QUESTIONS_PER_CHAT`: Frequency of chat resets to avoid Error 1095 / server throttles (default: `400`).
-* `DEBUG_PORT`: Target CDP port (`9222`).
+### المتغيرات الأساسية في السكربت (`web_gemini_generator.py`):
+* `CATEGORIES_FILE`: مسار ملف الفئات (الافتراضي: `categories.txt`).
+* `OUTPUT_DIR`: مجلد حفظ النتائج (الافتراضي: `./game_data/`).
+* `QUESTIONS_PER_TOPIC`: عدد الأسئلة المستهدفة لكل موضوع (الافتراضي: `200`).
+* `BATCH_SIZE`: عدد الأسئلة المطلوبة في كل طلب (الافتراضي: `25`).
+* `QUESTIONS_PER_CHAT`: عدد الأسئلة قبل إعادة ضبط المحادثة لتفادي حظر الجلسة (الافتراضي: `400`).
+* `DEBUG_PORT`: منفذ CDP للاتصال بكروم (`9222`).
 
 ---
 
-## 4. How to Run
+## 4. بنية المخرجات (Output Schema)
 
-Execute the script in your terminal:
-
-```bash
-python web_gemini_generator.py
-
-```
-
----
-
-## 5. Output Schema
-
-The generated data is stored under `./game_data/<category_id>/<topic_id>.json`. Each file adheres to the following structure:
+يتم حفظ الملفات الناتجة داخل مسار `./game_data/<category_id>/<topic_id>.json` بالهيكل التالي:
 
 ```json
 {
@@ -110,19 +119,14 @@ The generated data is stored under `./game_data/<category_id>/<topic_id>.json`. 
     }
   ]
 }
-
 ```
 
 ---
 
-## 6. Built-in Safeguards
+## 5. آليات الحماية ومعالجة الأخطاء (Built-in Safeguards)
 
-* **Spelling Variant Expansion**: Automatically adds forms with and without `ال`, handles Arabic letters (`إ/أ/آ` -> `ا`, `ة` -> `ه`, `ى` -> `ي`), and Eastern/Western numeral equivalents.
-* **Malformed JSON Recovery**: Employs multi-pass regex routines to repair unescaped inner quotation marks, smart Arabic quotes (`« » “ ”`), and trailing commas.
-* **Session Cycling**: Automatically resets and refreshes the chat session when prompt quotas are met to prevent Google web rate limits (`Error 1095`).
-* **Resumable Progress**: Inspects existing `.json` files on load; if a topic already contains questions, it resumes directly from that index without repeating work.
-* **Anti-Stall Protection**: Skips topics with consecutive batch failures to prevent infinite retry loops.
-
-```
-
-```
+* **توليد المتغيرات الإملائية (Spelling Variants)**: توليد الإجابات تلقائياً بأشكال متعددة مع وبدون (الـ)، توحيد الهمزات والألف المقصورة والتاء المربوطة، وتحويل الأرقام المشرقية والمغربية.
+* **إصلاح أخطاء الـ JSON تلقائياً (Malformed JSON Recovery)**: نظام متعدد المراحل لتصحيح علامات التنصيص العربية والإنجليزية والفواصل الزائدة لضمان عدم توقف السكربت.
+* **إعادة تدوير الجلسة (Session Cycling)**: إعادة تهيئة محادثة جديدة عند الوصول للحد لتجنب خطأ Google Rate Limits (`Error 1095`).
+* **استئناف العمل تلقائياً (Resumable Progress)**: قراءة الملفات الحالية والمتابعة من آخر سؤال تم حفظه دون تكرار العمليات السابقة.
+* **تخطي التعليق (Anti-Stall Protection)**: تخطي أي موضوع يواجه فشلاً متكرراً لضمان استمرار عمل السكربت.

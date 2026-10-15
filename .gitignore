@@ -1,0 +1,16 @@
+# Virtual Environment
+.venv/
+venv/
+env/
+
+# Byte-compiled / optimized files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Chrome Debug Profile
+chrome-dev-profile/
+
+# Environment files
+.env
+.env.local
