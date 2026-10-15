@@ -352,7 +352,7 @@ def main():
     print("Connecting to running Chrome browser...")
     with sync_playwright() as p:
         try:
-            browser = p.chromium.connect_over_cdp(f"http://localhost:{DEBUG_PORT}")
+            browser = p.chromium.connect_over_cdp(f"http://127.0.0.1:{DEBUG_PORT}")
         except Exception as e:
             print(f"\nCould not connect to Chrome! Make sure Chrome is open with --remote-debugging-port={DEBUG_PORT}")
             print(f"Details: {e}")
