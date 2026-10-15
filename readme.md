@@ -20,6 +20,7 @@ The platform provides:
 | `core/worker.py` | Multi-tab worker pool coordinator and one-shot execution handler. |
 | `core/README.md` | Dedicated documentation for the `core/` modules. |
 | `jobs.json` | Persistent state tracking queue for video generation jobs. |
+| `start_chrome.sh` | Linux Bash launcher starting Chrome/Chromium with remote debugging and headless auto-detection. |
 | `start_chrome.ps1` | PowerShell script to launch Google Chrome with remote debugging on port `9222`. |
 | `start_chrome.bat` | Batch script to launch Google Chrome on port `9222` with a dedicated profile. |
 | `run_generator.bat` | Convenience batch runner for the trivia generator. |
@@ -32,7 +33,9 @@ The platform provides:
 
 ## 1. Architecture & Key Features
 
-- **Multi-Tab Concurrency**: Uses `playwright.async_api` connected to an existing Chrome instance. Spawns up to $N$ worker tabs simultaneously (default: 3).
+- **Automatic Browser Discovery & Launching**: If Chrome is not already running on port `9222`, the system automatically detects your browser (`google-chrome`, `chromium`, or Windows Chrome) and spawns it in the background with `--remote-debugging-port=9222`.
+- **First-Class Linux Support**: Full compatibility with Linux desktops and headless environments (VPS, Docker, CI/CD). Automatically detects headless servers without `DISPLAY` and enables `--headless=new`, `--no-sandbox`, and `--disable-dev-shm-usage`.
+- **Multi-Tab Concurrency**: Uses `playwright.async_api` connected via CDP (`127.0.0.1:9222`). Spawns up to $N$ worker tabs simultaneously (default: 3).
 - **Tab Isolation**: Every generation task receives its own isolated page (`context.new_page()`) that is cleanly closed upon completion or error.
 - **Atomic Job Queue (`jobs.json`)**: Thread- and process-safe state transitions (`pending` ➔ `processing` ➔ `completed` / `failed`) guarded by `filelock.FileLock`.
 - **Tri-Strategy Video Extraction**:
@@ -47,30 +50,47 @@ The platform provides:
 
 ### Prerequisites
 - **Python 3.10 – 3.12**
-- **Google Chrome** installed locally.
+- **Google Chrome or Chromium** installed locally.
+  - **Debian / Ubuntu**: `sudo apt update && sudo apt install -y google-chrome-stable` (or `chromium-browser`)
+  - **Arch Linux**: `sudo pacman -S google-chrome` (or `chromium`)
+  - **Fedora**: `sudo dnf install -y google-chrome-stable` (or `chromium`)
 
 ### Installation
 ```bash
 # Activate virtual environment
-.\.venv\Scripts\Activate.ps1
+# On Linux: source .venv/bin/activate
+# On Windows PowerShell: .\.venv\Scripts\Activate.ps1
 
-# Install requirements
 pip install -r requirements.txt
 playwright install chromium
 ```
 
 ---
 
-## 3. Launching Google Chrome in Debugging Mode
+## 3. Browser Launch: Automatic vs Manual
 
-Before running any workers or one-shot commands, launch Chrome with remote debugging enabled:
+### Option A: Fully Automatic (Recommended)
+You do **not** need to manually start Chrome! When you execute any worker or generation command (`python cli.py start-worker` or `python cli.py generate`), the system automatically:
+1. Detects your installed Google Chrome or Chromium binary.
+2. Spawns it with `--remote-debugging-port=9222` and isolated user profile.
+3. On headless Linux servers (no display), it automatically applies `--headless=new --no-sandbox`.
+4. Connects via CDP and starts processing.
 
-**PowerShell:**
+### Option B: Manual Launch (If you need to log in to Gemini interactively)
+If you need to log in to your Google Account for the first time:
+
+**Linux:**
+```bash
+chmod +x start_chrome.sh
+./start_chrome.sh
+```
+
+**Windows PowerShell:**
 ```powershell
 .\start_chrome.ps1
 ```
 
-**CMD / Batch:**
+**Windows CMD:**
 ```cmd
 start_chrome.bat
 ```

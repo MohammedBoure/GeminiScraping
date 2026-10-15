@@ -105,7 +105,12 @@ def cmd_list(args):
 
 def cmd_start_worker(args):
     setup_logging(is_json=False, verbose=args.verbose)
-    pool = WorkerPool(max_tabs=args.max_tabs, timeout=args.timeout)
+    pool = WorkerPool(
+        max_tabs=args.max_tabs,
+        timeout=args.timeout,
+        headless=args.headless,
+        auto_launch=not args.no_auto_launch
+    )
 
     try:
         asyncio.run(pool.run())
@@ -120,7 +125,9 @@ def cmd_generate(args):
         result = asyncio.run(generate_oneshot(
             prompt=args.prompt,
             output_path=args.output,
-            timeout=args.timeout
+            timeout=args.timeout,
+            headless=args.headless,
+            auto_launch=not args.no_auto_launch
         ))
         if args.json:
             print(json.dumps(result, ensure_ascii=False, indent=2))
@@ -166,6 +173,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_worker = subparsers.add_parser("start-worker", help="Start the asynchronous multi-tab background worker.")
     p_worker.add_argument("--max-tabs", type=int, default=3, help="Maximum concurrent browser tabs (default: 3).")
     p_worker.add_argument("--timeout", type=int, default=360, help="Per-video generation timeout in seconds (default: 360).")
+    p_worker.add_argument("--headless", action="store_true", default=None, help="Force headless browser mode (auto-detected on Linux if no display).")
+    p_worker.add_argument("--no-auto-launch", action="store_true", help="Disable automatic browser launching if port 9222 is closed.")
     p_worker.add_argument("--verbose", "-v", action="store_true", help="Enable verbose debug logging.")
     p_worker.set_defaults(func=cmd_start_worker)
 
@@ -174,6 +183,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_gen.add_argument("--prompt", "-p", required=True, type=str, help="Text prompt for video generation.")
     p_gen.add_argument("--output", "-o", type=str, default=None, help="Target output file path.")
     p_gen.add_argument("--timeout", type=int, default=360, help="Per-video generation timeout in seconds (default: 360).")
+    p_gen.add_argument("--headless", action="store_true", default=None, help="Force headless browser mode (auto-detected on Linux if no display).")
+    p_gen.add_argument("--no-auto-launch", action="store_true", help="Disable automatic browser launching if port 9222 is closed.")
     p_gen.add_argument("--verbose", "-v", action="store_true", help="Enable verbose debug logging.")
     p_gen.add_argument("--json", action="store_true", help="Output machine-readable JSON.")
     p_gen.set_defaults(func=cmd_generate)

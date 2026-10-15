@@ -18,10 +18,21 @@ class WorkerPool:
     browser tab, generates the video, saves the result, and cleans up the tab.
     """
 
-    def __init__(self, max_tabs: int = 3, timeout: int = 360, job_manager: Optional[JobManager] = None):
+    def __init__(
+        self,
+        max_tabs: int = 3,
+        timeout: int = 360,
+        job_manager: Optional[JobManager] = None,
+        headless: Optional[bool] = None,
+        auto_launch: bool = True
+    ):
         self.max_tabs = max(1, max_tabs)
         self.timeout = timeout
         self.job_manager = job_manager or JobManager()
+        self.headless = headless
+        self.auto_launch = auto_launch
+        browser_manager.headless = headless
+        browser_manager.auto_launch = auto_launch
         self._stop_event = asyncio.Event()
         self._active_workers = []
 
@@ -97,11 +108,20 @@ class WorkerPool:
         self._stop_event.set()
 
 
-async def generate_oneshot(prompt: str, output_path: Optional[str] = None, timeout: int = 360) -> dict:
+async def generate_oneshot(
+    prompt: str,
+    output_path: Optional[str] = None,
+    timeout: int = 360,
+    headless: Optional[bool] = None,
+    auto_launch: bool = True
+) -> dict:
     """
     Performs a one-shot blocking generation: opens a single dedicated tab,
     generates and downloads the video, prints the result, and cleans up.
     """
+    browser_manager.headless = headless
+    browser_manager.auto_launch = auto_launch
+
     jm = JobManager()
     custom_filename = os.path.basename(output_path) if output_path else None
     job = jm.add_job(prompt=prompt, filename=custom_filename)
