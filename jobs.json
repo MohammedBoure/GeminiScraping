@@ -1,0 +1,13 @@
+[
+  {
+    "job_id": "vid_20261016_005922_cec1e3",
+    "prompt": "Cinematic underwater coral reef drone shot",
+    "filename": "test_reef.mp4",
+    "status": "pending",
+    "created_at": 1792105162.1161733,
+    "started_at": null,
+    "completed_at": null,
+    "error": null,
+    "output_path": "generated_videos\\test_reef.mp4"
+  }
+]

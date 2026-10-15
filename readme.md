@@ -1,137 +1,179 @@
-# Gemini Web Trivia Generator (`web_gemini_generator.py`)
+# Gemini Automation Platform: Video Generation Worker & Trivia Pipeline
 
-أداة مؤتمتة تعتمد على Playwright عبر بروتوكول Chrome DevTools (CDP) للتحكم في جلسة متصفح نشطة على `gemini.google.com`، لتوليد قواعد بيانات ألغاز وأسئلة ثقافية ومسابقات عبر تصنيفات ومواضيع متعددة وحفظها في ملفات JSON قياسية.
+A high-performance, asynchronous automation framework built on **Playwright** via Chrome DevTools Protocol (CDP) at `http://127.0.0.1:9222`.
+
+The platform provides:
+1. **Asynchronous Multi-Tab Video Generation Worker & Queue System**: Orchestrates up to $N$ concurrent tabs to generate and download AI videos with atomic file locking (`jobs.json`) and an agent-ready CLI (`cli.py`).
+2. **Trivia Puzzle Pipeline (`web_gemini_generator.py`)**: Automates high-volume trivia puzzle generation across diverse categories into structured JSON datasets.
 
 ---
 
-## 📁 بنية ومحتويات المجلد (Files Overview)
+## 📁 Repository Structure & File Manifest
 
-| الملف / المجلد | الوصف والهدف |
+| File / Directory | Purpose & Responsibility |
 |---|---|
-| `web_gemini_generator.py` | السكربت الرئيسي الذي يتصل بمتصفح Chrome ويقوم بإرسال الطلبات إلى Gemini ومعالجة الإجابات وحفظ الأسئلة. |
-| `categories.txt` | ملف الإدخال بصيغة JSON ويحتوي على شجرة التصنيفات والمواضيع المستهدفة لتوليد الأسئلة. |
-| `example of the result.json` | نموذج توضيحي لهيكل وشكل ملف JSON النهائي للأسئلة لكل موضوع. |
-| `requirements.txt` | ملف الاعتماديات والحزم المطلوبة للمشروع (`playwright`). |
-| `start_chrome.bat` | سكربت دفعي (Batch) لتشغيل متصفح Google Chrome تلقائياً مع فتح منفذ التصحيح عن بُعد `9222`. |
-| `start_chrome.ps1` | سكربت PowerShell مخصص لمستخدمي الطرفية لتشغيل Chrome بوضع التصحيح بسلاسة. |
-| `run_generator.bat` | سكربت دفعي لتشغيل السكربت الرئيسي مباشرة باستخدام بايثون في البيئة الافتراضية `.venv`. |
-| `.gitignore` | ملف استثناء البيئة الافتراضية وملفات الكاش وجلسات المتصفح المؤقتة من مستودع Git. |
-| `readme.md` | ملف التوثيق ودليل إعداد وتشغيل المشروع. |
+| `cli.py` | Unified Agent CLI supporting human-readable output and machine-readable `--json` responses (`submit`, `status`, `list`, `start-worker`, `generate`). |
+| `core/` | Asynchronous automation engine package. Contains `job_manager.py`, `browser.py`, `gemini_page.py`, `worker.py`, and `__init__.py`. |
+| `core/job_manager.py` | Thread- and process-safe state manager for `jobs.json` backed by `filelock`. |
+| `core/browser.py` | Async CDP connection manager (`http://127.0.0.1:9222`) handling tab pool allocation and isolation. |
+| `core/gemini_page.py` | DOM interaction, JS prompt injection, refusal detection, and multi-strategy video extraction (native download, direct URL, base64 blob decoding). |
+| `core/worker.py` | Multi-tab worker pool coordinator and one-shot execution handler. |
+| `core/README.md` | Dedicated documentation for the `core/` modules. |
+| `jobs.json` | Persistent state tracking queue for video generation jobs. |
+| `start_chrome.ps1` | PowerShell script to launch Google Chrome with remote debugging on port `9222`. |
+| `start_chrome.bat` | Batch script to launch Google Chrome on port `9222` with a dedicated profile. |
+| `run_generator.bat` | Convenience batch runner for the trivia generator. |
+| `requirements.txt` | Project dependencies (`playwright`, `filelock`, `requests`, `aiohttp`). |
+| `web_gemini_generator.py` | High-volume trivia question generator pipeline. |
+| `web_gemini_video_generator.py` | Standalone synchronous single-task video generator script. |
+| `README.md` | Main platform documentation, setup instructions, and CLI reference. |
 
 ---
 
-## 1. المتطلبات والاعتماديات (Prerequisites & Setup)
+## 1. Architecture & Key Features
 
-- **Python 3.10 - 3.12** (ملاحظة: Playwright يتطلب إصداراً مدعوماً مثل Python 3.12).
-- متصفح **Google Chrome** مثبت على الجهاز.
-- البيئة الافتراضية مثبت بها مكتبة `playwright`:
-  ```bash
-  pip install -r requirements.txt
-  playwright install chromium
-  ```
+- **Multi-Tab Concurrency**: Uses `playwright.async_api` connected to an existing Chrome instance. Spawns up to $N$ worker tabs simultaneously (default: 3).
+- **Tab Isolation**: Every generation task receives its own isolated page (`context.new_page()`) that is cleanly closed upon completion or error.
+- **Atomic Job Queue (`jobs.json`)**: Thread- and process-safe state transitions (`pending` ➔ `processing` ➔ `completed` / `failed`) guarded by `filelock.FileLock`.
+- **Tri-Strategy Video Extraction**:
+  1. *Native Download Triggers*: Intercepts browser download events via `page.expect_download()`.
+  2. *Direct Media URLs*: Downloads HTTP/HTTPS video streams asynchronously using `aiohttp`.
+  3. *In-Page Blob Decoding*: Fetches `blob:` URLs directly within page context via JavaScript and encodes to base64, then decodes and writes to disk.
+- **Agent-Friendly CLI**: Every command features a `--json` flag outputting pure, unpolluted JSON on `stdout` while diagnostic logs are routed to `stderr`.
 
 ---
 
-## 2. خطوات التشغيل (Quick Start)
+## 2. Setup & Installation
 
-### الخطوة الأولى: تشغيل المتصفح بوضع التصحيح
-في سطر الأوامر (PowerShell):
+### Prerequisites
+- **Python 3.10 – 3.12**
+- **Google Chrome** installed locally.
+
+### Installation
+```bash
+# Activate virtual environment
+.\.venv\Scripts\Activate.ps1
+
+# Install requirements
+pip install -r requirements.txt
+playwright install chromium
+```
+
+---
+
+## 3. Launching Google Chrome in Debugging Mode
+
+Before running any workers or one-shot commands, launch Chrome with remote debugging enabled:
+
+**PowerShell:**
 ```powershell
 .\start_chrome.ps1
 ```
-أو عبر ملف الدُفعة (CMD):
+
+**CMD / Batch:**
 ```cmd
 start_chrome.bat
 ```
-أو عبر سطر الأوامر (PowerShell / CMD):
-```powershell
-& "C:\Program Files\Google\Chrome\Application\chrome.exe" --remote-debugging-port=9222 --user-data-dir="C:\chrome-dev-profile" https://gemini.google.com
-```
-1. قم بتسجيل الدخول إلى حساب Google الخاص بك في نافذة Chrome التي فتحت.
-2. اترك المتصفح مفتوحاً في الخلفية.
 
-### الخطوة الثانية: بدء التوليد
-قم بتشغيل الملف:
-```cmd
-run_generator.bat
-```
-أو عبر سطر الأوامر باستخدام بايثون في البيئة الافتراضية:
+> [!IMPORTANT]
+> 1. Sign in to your Google Account on `https://gemini.google.com` in the opened Chrome window.
+> 2. Keep this browser window running in the background.
+
+---
+
+## 4. CLI Reference (`cli.py`)
+
+The CLI offers standard human-readable format or pure JSON (`--json`) for automated agents.
+
+### A. Submit a Video Generation Job
+Enqueues a new prompt to `jobs.json`:
 ```bash
+python cli.py submit --prompt "Cinematic drone shot of an emerald tropical island" --filename "island.mp4" --json
+```
+**JSON Response:**
+```json
+{
+  "job_id": "vid_20261016_010000_abc123",
+  "status": "pending",
+  "output_path": "generated_videos\\island.mp4",
+  "prompt": "Cinematic drone shot of an emerald tropical island"
+}
+```
+
+### B. Check Job Status
+Inspect details and progress of a specific job:
+```bash
+python cli.py status vid_20261016_010000_abc123 --json
+```
+**JSON Response:**
+```json
+{
+  "job_id": "vid_20261016_010000_abc123",
+  "prompt": "Cinematic drone shot of an emerald tropical island",
+  "filename": "island.mp4",
+  "status": "completed",
+  "created_at": 1729040000.0,
+  "started_at": 1729040002.5,
+  "completed_at": 1729040045.2,
+  "error": null,
+  "output_path": "generated_videos\\island.mp4"
+}
+```
+
+### C. List Jobs
+Query all or filter by status (`pending`, `processing`, `completed`, `failed`):
+```bash
+python cli.py list --status pending --json
+```
+
+### D. Start Concurrent Worker Pool
+Runs the background consumer orchestrating multiple tabs simultaneously:
+```bash
+python cli.py start-worker --max-tabs 3 --timeout 360
+```
+
+### E. One-Shot Generation
+Blocks until video generation and download finish:
+```bash
+python cli.py generate --prompt "Hyperlapse of neon Tokyo at night" --output "./generated_videos/tokyo.mp4" --json
+```
+
+---
+
+## 5. Autonomous Agent One-Liners
+
+Autonomous LLM agents can control video generation using standard subprocess commands:
+
+### Submit and Poll Until Done (PowerShell)
+```powershell
+$job = (python cli.py submit --prompt "Close up macro of honey bee on lavender" --json | ConvertFrom-Json)
+Write-Host "Submitted job: $($job.job_id)"
+do {
+    Start-Sleep -Seconds 5
+    $status = (python cli.py status $job.job_id --json | ConvertFrom-Json)
+} while ($status.status -in @("pending", "processing"))
+Write-Host "Job finished with status: $($status.status). Output: $($status.output_path)"
+```
+
+### Submit and Poll Until Done (Bash / Python Subprocess)
+```bash
+JOB_ID=$(python cli.py submit --prompt "Cyberpunk street market in the rain" --json | jq -r '.job_id')
+while :; do
+  STATUS=$(python cli.py status "$JOB_ID" --json | jq -r '.status')
+  [ "$STATUS" = "completed" ] && break
+  [ "$STATUS" = "failed" ] && exit 1
+  sleep 5
+done
+echo "Video ready at: $(python cli.py status "$JOB_ID" --json | jq -r '.output_path')"
+```
+
+---
+
+## 6. Trivia Generator Pipeline (`web_gemini_generator.py`)
+
+To run the trivia question dataset scraper:
+```powershell
 .\.venv\Scripts\python.exe web_gemini_generator.py
 ```
-
----
-
-## 3. التكوين وملف الإدخال (Configuration)
-
-يقوم السكربت بقراءة التصنيفات من `categories.txt` المهيكلة كـ JSON:
-```json
-{
-  "علوم": [
-    "عالم البحار",
-    "الكيمياء"
-  ],
-  "رياضه": [
-    "كرة قدم",
-    "الدوري الإسباني"
-  ]
-}
-```
-
-### المتغيرات الأساسية في السكربت (`web_gemini_generator.py`):
-* `CATEGORIES_FILE`: مسار ملف الفئات (الافتراضي: `categories.txt`).
-* `OUTPUT_DIR`: مجلد حفظ النتائج (الافتراضي: `./game_data/`).
-* `QUESTIONS_PER_TOPIC`: عدد الأسئلة المستهدفة لكل موضوع (الافتراضي: `200`).
-* `BATCH_SIZE`: عدد الأسئلة المطلوبة في كل طلب (الافتراضي: `25`).
-* `QUESTIONS_PER_CHAT`: عدد الأسئلة قبل إعادة ضبط المحادثة لتفادي حظر الجلسة (الافتراضي: `400`).
-* `DEBUG_PORT`: منفذ CDP للاتصال بكروم (`9222`).
-
----
-
-## 4. بنية المخرجات (Output Schema)
-
-يتم حفظ الملفات الناتجة داخل مسار `./game_data/<category_id>/<topic_id>.json` بالهيكل التالي:
-
-```json
-{
-  "id": "علم_البحار",
-  "categoryId": "science",
-  "categoryTitle": "علوم",
-  "title": "عالم البحار",
-  "description": "عالم عالم البحار وعجائبه وأبرز أسراره وتحدياته",
-  "cover_image": "/covers/علم_البحار.svg",
-  "is_vip": false,
-  "puzzles": [
-    {
-      "id": "علم__001",
-      "prompt": "ما هو أكبر كائن حي يعيش في المحيطات؟",
-      "answer_type": "text_normalized",
-      "correct_answers": [
-        "الحوت الازرق",
-        "حوت ازرق",
-        "الحوت الأزرق"
-      ],
-      "wrong_answers": [
-        "القرش الأبيض الكبير",
-        "الحوت القاتل",
-        "حوت العنبر",
-        "سبيدج عملاق",
-        "فقمة الفيل",
-        "قرش الحوت",
-        "مانتا راي",
-        "أخطبوط المحيط"
-      ]
-    }
-  ]
-}
-```
-
----
-
-## 5. آليات الحماية ومعالجة الأخطاء (Built-in Safeguards)
-
-* **توليد المتغيرات الإملائية (Spelling Variants)**: توليد الإجابات تلقائياً بأشكال متعددة مع وبدون (الـ)، توحيد الهمزات والألف المقصورة والتاء المربوطة، وتحويل الأرقام المشرقية والمغربية.
-* **إصلاح أخطاء الـ JSON تلقائياً (Malformed JSON Recovery)**: نظام متعدد المراحل لتصحيح علامات التنصيص العربية والإنجليزية والفواصل الزائدة لضمان عدم توقف السكربت.
-* **إعادة تدوير الجلسة (Session Cycling)**: إعادة تهيئة محادثة جديدة عند الوصول للحد لتجنب خطأ Google Rate Limits (`Error 1095`).
-* **استئناف العمل تلقائياً (Resumable Progress)**: قراءة الملفات الحالية والمتابعة من آخر سؤال تم حفظه دون تكرار العمليات السابقة.
-* **تخطي التعليق (Anti-Stall Protection)**: تخطي أي موضوع يواجه فشلاً متكرراً لضمان استمرار عمل السكربت.
+- Inputs: `categories.txt`
+- Outputs: Normalized JSON files under `./game_data/<category>/<topic>.json` adhering to `example of the result.json`.
